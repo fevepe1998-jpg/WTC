@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="ElectroCorp"/>
+<meta name="theme-color" content="#3B82F6"/>
+<meta name="description" content="Sistema de gestión operativa ElectroCorp"/>
+<title>ElectroCorp</title>
+
+<!-- PWA Manifest inline -->
+<link rel="manifest" href="data:application/json,{
+  %22name%22:%22ElectroCorp%22,
+  %22short_name%22:%22ElectroCorp%22,
+  %22description%22:%22Sistema%20de%20gesti%C3%B3n%20operativa%22,
+  %22start_url%22:%22.%22,
+  %22display%22:%22standalone%22,
+  %22background_color%22:%22%23ffffff%22,
+  %22theme_color%22:%22%233B82F6%22,
+  %22orientation%22:%22portrait-primary%22,
+  %22icons%22:[
+    {%22src%22:%22data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20192%20192'%3E%3Crect%20width%3D'192'%20height%3D'192'%20rx%3D'40'%20fill%3D'%233B82F6'%2F%3E%3Cpath%20d%3D'M96%2040l-30%2060h25l-15%2052%2050-68H96z'%20fill%3D'white'%2F%3E%3C%2Fsvg%3E%22,%22sizes%22:%22192x192%22,%22type%22:%22image/svg+xml%22},
+    {%22src%22:%22data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20512%20512'%3E%3Crect%20width%3D'512'%20height%3D'512'%20rx%3D'100'%20fill%3D'%233B82F6'%2F%3E%3Cpath%20d%3D'M256%20100l-80%20160h65l-40%20152%20135-184H256z'%20fill%3D'white'%2F%3E%3C%2Fsvg%3E%22,%22sizes%22:%22512x512%22,%22type%22:%22image/svg+xml%22}
+  ]
+}"/>
+
+<!-- Apple touch icon -->
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20180%20180'%3E%3Crect%20width%3D'180'%20height%3D'180'%20rx%3D'40'%20fill%3D'%233B82F6'%2F%3E%3Cpath%20d%3D'M90%2035l-28%2056h23l-14%2050%2047-64H90z'%20fill%3D'white'%2F%3E%3C%2Fsvg%3E"/>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#fff}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#E5E7EB;border-radius:99px}
+@keyframes spin{to{transform:rotate(360deg)}}
+/* Safe area para notch de iPhone */
+.safe-top{padding-top:env(safe-area-inset-top)}
+</style>
+
+<!-- Service Worker para funcionar offline -->
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{
+    const sw=`
+      const CACHE='electrocorp-v1';
+      const URLS=[
+        'https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css',
+        'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js',
+        'https://unpkg.com/react@18/umd/react.production.min.js',
+        'https://unpkg.com/react-dom@18/umd/react-dom.production.min.js',
+        'https://unpkg.com/@babel/standalone/babel.min.js',
+      ];
+      self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(URLS)).catch(()=>{})));
+      self.addEventListener('fetch',e=>{
+        e.respondWith(caches.match(e.request).then(r=>r||fetch(e.request).catch(()=>new Response('Sin conexión',{status:503}))));
+      });
+    `;
+    const blob=new Blob([sw],{type:'application/javascript'});
+    const url=URL.createObjectURL(blob);
+    navigator.serviceWorker.register(url).catch(()=>{});
+  });
+}
+</script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+// ── Supabase ──────────────────────────────────────────────────────────────────
+const sb = supabase.createClient(
+  'https://azmcgfgnwstfickdltsy.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6bWNnZmdud3N0Zmlja2RsdHN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1MjU2MDksImV4cCI6MjA5NDEwMTYwOX0.BQPstAf9Vbzw14XyiX4iR-2r5WTiJBZ4lczvzq5fgbE'
+);
+
+const MONO = "'DM Mono',monospace";
+const SC = {
+  entregado:    {label:'Entregado',    bg:'#ECFDF3',color:'#166534',dot:'#22C55E'},
+  transito:     {label:'En tránsito',  bg:'#FFFBEB',color:'#92400E',dot:'#F59E0B'},
+  devuelto:     {label:'Devuelto',     bg:'#FEF2F2',color:'#991B1B',dot:'#EF4444'},
+  confirmado:   {label:'Confirmado',   bg:'#EFF6FF',color:'#1E40AF',dot:'#3B82F6'},
+  pendiente:    {label:'Pendiente',    bg:'#F4F4F5',color:'#52525B',dot:'#A1A1AA'},
+  reprogramado: {label:'Reprogramado', bg:'#FFF7ED',color:'#9A3412',dot:'#F97316'},
+  reclamo:      {label:'Reclamo',      bg:'#F5F3FF',color:'#5B21B6',dot:'#8B5CF6'},
+};
+const CC = {
+  aprobada: {label:'Aprobada', bg:'#ECFDF3',color:'#166534'},
+  pendiente:{label:'Pendiente',bg:'#FFFBEB',color:'#92400E'},
+  bloqueada:{label:'Bloqueada',bg:'#F5F3FF',color:'#5B21B6'},
+  anulada:  {label:'Anulada',  bg:'#FEF2F2',color:'#991B1B'},
+  pagada:   {label:'Pagada',   bg:'#F0FDF4',color:'#14532D'},
+};
+const RC = {
+  admin:        {label:'Admin',        color:'#1E40AF',bg:'#EFF6FF'},
+  vendedor:     {label:'Vendedor',     color:'#166534',bg:'#ECFDF3'},
+  logistica:    {label:'Logística',    color:'#92400E',bg:'#FFFBEB'},
+  contabilidad: {label:'Contabilidad', color:'#5B21B6',bg:'#F5F3FF'},
+};
+const CAN = {
+  admin:        {pedidos:true, productos:true, vendedores:true, lotes:true, usuarios:true, pagar:true, estado:true},
+  vendedor:     {pedidos:'own',productos:false,vendedores:false,lotes:false,usuarios:false,pagar:false,estado:true},
+  logistica:    {pedidos:true, productos:false,vendedores:false,lotes:false,usuarios:false,pagar:false,estado:true},
+  contabilidad: {pedidos:true, productos:false,vendedores:true, lotes:true, usuarios:false,pagar:true, estado:false},
+};
+
+const fmt  = n => '$'+Math.round(n||0).toLocaleString('es-CO');
+const fmtK = n => !n?'$0':n>=1000000?'$'+(n/1000000).toFixed(1)+'M':'$'+Math.round(n/1000)+'K';
+const INP  = {width:'100%',padding:'8px 11px',border:'1px solid #E5E7EB',borderRadius:8,fontSize:13,color:'#111827',fontFamily:'inherit',outline:'none',background:'#fff'};
+const SEL  = {...INP,cursor:'pointer'};
+
+// ── Primitivos ────────────────────────────────────────────────────────────────
+const SBadge = ({status}) => {
+  const c=SC[status]||SC.pendiente;
+  return <span style={{display:'inline-flex',alignItems:'center',gap:5,fontSize:11,fontWeight:500,padding:'3px 9px',borderRadius:99,background:c.bg,color:c.color}}>
+    <span style={{width:6,height:6,borderRadius:'50%',background:c.dot,flexShrink:0}}/>{c.label}
+  </span>;
+};
+const CBadge = ({status,amount}) => {
+  const c=CC[status]||CC.pendiente;
+  return <span style={{fontSize:11,fontWeight:500,padding:'3px 9px',borderRadius:99,background:c.bg,color:c.color}}>
+    {status==='anulada'?'Anulada':status==='bloqueada'?'Bloqueada':fmt(amount)}
+  </span>;
+};
+const RBadge = ({role}) => {
+  const c=RC[role]||RC.vendedor;
+  return <span style={{fontSize:11,fontWeight:500,padding:'3px 9px',borderRadius:99,background:c.bg,color:c.color}}>{c.label}</span>;
+};
+const Empty = ({icon,title,sub,action,onAction}) =>
+  <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'56px 24px',gap:10}}>
+    <i className={`ti ti-${icon}`} style={{fontSize:34,color:'#D1D5DB'}}/>
+    <div style={{fontSize:14,fontWeight:600,color:'#9CA3AF'}}>{title}</div>
+    {sub&&<div style={{fontSize:12,color:'#D1D5DB',textAlign:'center',maxWidth:240}}>{sub}</div>}
+    {action&&<button onClick={onAction} style={{marginTop:6,display:'flex',alignItems:'center',gap:6,background:'#3B82F6',color:'#fff',border:'none',borderRadius:8,padding:'8px 14px',fontSize:12,fontWeight:600,cursor:'pointer'}}>
+      <i className="ti ti-plus" style={{fontSize:13}}/>{action}
+    </button>}
+  </div>;
+
+const Modal = ({title,onClose,children,wide}) =>
+  <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+    <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:wide?680:520,maxHeight:'90vh',overflowY:'auto'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 20px',borderBottom:'1px solid #E5E7EB',position:'sticky',top:0,background:'#fff',zIndex:1}}>
+        <span style={{fontSize:15,fontWeight:600,color:'#111827'}}>{title}</span>
+        <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',color:'#9CA3AF'}}><i className="ti ti-x" style={{fontSize:18}}/></button>
+      </div>
+      <div style={{padding:20}}>{children}</div>
+    </div>
+  </div>;
+
+const F = ({label,children,span2}) =>
+  <div style={{marginBottom:14,gridColumn:span2?'span 2':undefined}}>
+    <label style={{display:'block',fontSize:12,fontWeight:500,color:'#374151',marginBottom:5}}>{label}</label>
+    {children}
+  </div>;
+
+const Btn = ({children,onClick,secondary,small}) => {
+  const bg=secondary?'#fff':'#3B82F6',co=secondary?'#6B7280':'#fff',bo=secondary?'1px solid #E5E7EB':'none';
+  return <button onClick={onClick} style={{display:'flex',alignItems:'center',gap:5,border:bo,borderRadius:8,padding:small?'5px 12px':'9px 16px',fontSize:small?12:13,fontWeight:600,cursor:'pointer',background:bg,color:co,whiteSpace:'nowrap'}}>{children}</button>;
+};
+
+const Kpi = ({icon,label,value,sub,subColor,accent}) => {
+  const empty=value===0||value==='$0'||!value;
+  return <div style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:12,padding:'16px 18px',borderTop:`3px solid ${accent}`}}>
+    <div style={{display:'flex',alignItems:'center',gap:6,fontSize:11,color:'#9CA3AF',marginBottom:8,fontWeight:500,textTransform:'uppercase',letterSpacing:'0.05em'}}>{icon}{label}</div>
+    <div style={{fontSize:26,fontWeight:600,lineHeight:1,fontFamily:MONO,color:empty?'#D1D5DB':'#111827'}}>{empty?'—':value}</div>
+    {sub&&<div style={{fontSize:11,marginTop:6,color:empty?'#D1D5DB':(subColor||'#9CA3AF')}}>{sub}</div>}
+  </div>;
+};
+
+const Toast = ({msg,type}) => {
+  const bg=type==='error'?'#FEF2F2':type==='warn'?'#FFFBEB':'#ECFDF3';
+  const co=type==='error'?'#991B1B':type==='warn'?'#92400E':'#166534';
+  const ic=type==='error'?'alert-circle':type==='warn'?'alert-triangle':'circle-check';
+  return <div style={{position:'fixed',bottom:24,right:24,zIndex:300,background:bg,color:co,border:`1px solid ${co}30`,borderRadius:10,padding:'12px 18px',fontSize:13,fontWeight:500,display:'flex',alignItems:'center',gap:8,boxShadow:'0 4px 16px rgba(0,0,0,.1)'}}>
+    <i className={`ti ti-${ic}`} style={{fontSize:16}}/>{msg}
+  </div>;
+};
+
+const Spin = () =>
+  <div style={{display:'flex',alignItems:'center',justifyContent:'center',padding:60}}>
+    <div style={{width:32,height:32,border:'3px solid #E5E7EB',borderTopColor:'#3B82F6',borderRadius:'50%',animation:'spin 0.7s linear infinite'}}/>
+  </div>;
+
+// ── Login ─────────────────────────────────────────────────────────────────────
+function Login({onLogin}) {
+  const [email,setEmail]=useState('');
+  const [pass,setPass]=useState('');
+  const [err,setErr]=useState('');
+  const [show,setShow]=useState(false);
+  const [loading,setLoading]=useState(false);
+  const attempt = async () => {
+    setLoading(true);setErr('');
+    const {data,error}=await sb.from('users').select('*').eq('email',email.trim()).eq('password',pass).eq('active',true).single();
+    setLoading(false);
+    if(error||!data){setErr('Email o contraseña incorrectos');return;}
+    onLogin(data);
+  };
+  return <div style={{minHeight:'100vh',background:'#F8FAFC',display:'flex',alignItems:'center',justifyContent:'center'}}>
+    <div style={{width:'100%',maxWidth:400}}>
+      <div style={{textAlign:'center',marginBottom:32}}>
+        <div style={{display:'inline-flex',alignItems:'center',gap:10,fontWeight:700,fontSize:22,color:'#111827'}}>
+          <div style={{width:42,height:42,borderRadius:12,background:'#3B82F6',display:'flex',alignItems:'center',justifyContent:'center'}}>
+            <i className="ti ti-bolt" style={{fontSize:22,color:'#fff'}}/>
+          </div>ElectroCorp
+        </div>
+        <p style={{fontSize:13,color:'#9CA3AF',marginTop:8}}>Sistema de gestión operativa</p>
+      </div>
+      <div style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:16,padding:28}}>
+        <h2 style={{fontSize:16,fontWeight:600,color:'#111827',marginBottom:20}}>Iniciar sesión</h2>
+        <F label="Email">
+          <input style={INP} type="email" value={email} onChange={e=>{setEmail(e.target.value);setErr('');}} placeholder="correo@electrocorp.co" onKeyDown={e=>e.key==='Enter'&&attempt()}/>
+        </F>
+        <F label="Contraseña">
+          <div style={{position:'relative'}}>
+            <input style={{...INP,paddingRight:38}} type={show?'text':'password'} value={pass} onChange={e=>{setPass(e.target.value);setErr('');}} placeholder="••••••••" onKeyDown={e=>e.key==='Enter'&&attempt()}/>
+            <button onClick={()=>setShow(s=>!s)} style={{position:'absolute',right:10,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',cursor:'pointer',color:'#9CA3AF'}}>
+              <i className={`ti ti-eye${show?'-off':''}`} style={{fontSize:15}}/>
+            </button>
+          </div>
+        </F>
+        {err&&<div style={{background:'#FEF2F2',border:'1px solid #FECACA',borderRadius:8,padding:'9px 12px',fontSize:12,color:'#991B1B',marginBottom:14,display:'flex',alignItems:'center',gap:6}}>
+          <i className="ti ti-alert-circle" style={{fontSize:14}}/>{err}
+        </div>}
+        <button onClick={attempt} disabled={loading} style={{width:'100%',background:'#3B82F6',color:'#fff',border:'none',borderRadius:8,padding:11,fontSize:14,fontWeight:600,cursor:loading?'wait':'pointer',opacity:loading?0.7:1}}>
+          {loading?'Verificando...':'Entrar'}
+        </button>
+        <div style={{marginTop:16,padding:'10px 14px',background:'#F9FAFB',borderRadius:8,fontSize:11,color:'#9CA3AF'}}>
+          <div style={{fontWeight:600,marginBottom:4,color:'#6B7280'}}>Usuario inicial:</div>
+          <div>admin@electrocorp.co / admin123</div>
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+// ── Navbar ────────────────────────────────────────────────────────────────────
+function Navbar({view,setView,user,onLogout}) {
+  const p=CAN[user.role]||{};
+  const VIEWS=['Dashboard','Pedidos','Lotes','Productos','Vendedores','Usuarios'];
+  const ICONS={Dashboard:'layout-dashboard',Pedidos:'shopping-cart',Lotes:'layers-subtract',Productos:'package',Vendedores:'users',Usuarios:'shield'};
+  const vis=VIEWS.filter(v=>{
+    if(v==='Dashboard') return true;
+    if(v==='Pedidos')   return p.pedidos;
+    if(v==='Productos') return p.productos;
+    if(v==='Vendedores')return p.vendedores;
+    if(v==='Lotes')     return p.lotes;
+    if(v==='Usuarios')  return p.usuarios;
+    return false;
+  });
+  return <div style={{background:'#fff',borderBottom:'1px solid #E5E7EB',padding:'0 24px',height:52,display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,zIndex:10}}>
+    <div style={{display:'flex',alignItems:'center',gap:20}}>
+      <div style={{display:'flex',alignItems:'center',gap:8,fontWeight:700,fontSize:15,color:'#111827'}}>
+        <i className="ti ti-bolt" style={{fontSize:18,color:'#3B82F6'}}/>ElectroCorp
+      </div>
+      <nav style={{display:'flex',gap:2}}>
+        {vis.map(v=><button key={v} onClick={()=>setView(v)} style={{display:'flex',alignItems:'center',gap:7,padding:'6px 11px',borderRadius:8,border:'none',cursor:'pointer',fontSize:12,fontWeight:view===v?600:400,background:view===v?'#EFF6FF':'transparent',color:view===v?'#1E40AF':'#6B7280'}}>
+          <i className={`ti ti-${ICONS[v]}`} style={{fontSize:15}}/>{v}
+        </button>)}
+      </nav>
+    </div>
+    <div style={{display:'flex',alignItems:'center',gap:12}}>
+      <div style={{textAlign:'right'}}>
+        <div style={{fontSize:12,fontWeight:600,color:'#111827'}}>{user.name}</div>
+        <div style={{marginTop:2}}><RBadge role={user.role}/></div>
+      </div>
+      <button onClick={onLogout} title="Cerrar sesión" style={{width:32,height:32,borderRadius:'50%',background:'#FEF2F2',border:'none',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:'#991B1B'}}>
+        <i className="ti ti-logout" style={{fontSize:14}}/>
+      </button>
+    </div>
+  </div>;
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+function Dashboard({orders,sellers,products,user}) {
+  const [f,setF]=useState('Todos');
+  const filters=['Todos','Entregado','En tránsito','Devuelto','Reclamo'];
+  const my=user.role==='vendedor'?orders.filter(o=>o.created_by===user.id):orders;
+  const del=my.filter(o=>o.status==='entregado');
+  const ret=my.filter(o=>o.status==='devuelto');
+  const tra=my.filter(o=>o.status==='transito');
+  const pc=my.filter(o=>o.comm_status==='pendiente').reduce((a,o)=>a+(o.comm||0),0);
+  const rows=f==='Todos'?my:my.filter(o=>SC[o.status]?.label===f);
+  const top=products.map(p=>({...p,sold:my.filter(o=>o.product_id===p.id&&o.status==='entregado').reduce((a,o)=>a+(o.qty||1),0)})).filter(p=>p.sold>0).sort((a,b)=>b.sold-a.sold).slice(0,5);
+  const mx=top[0]?.sold||1;
+  return <div style={{display:'flex',flexDirection:'column',gap:20}}>
+    <div>
+      <h1 style={{fontSize:18,fontWeight:600,color:'#111827'}}>Dashboard operativo</h1>
+      <p style={{fontSize:12,color:'#9CA3AF',marginTop:3}}>{user.role==='vendedor'?'Tus estadísticas':'Resumen general'}</p>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:12}}>
+      <Kpi icon={<i className="ti ti-shopping-cart"/>} label="Pedidos totales"    value={my.length}   sub={my.length?`${del.length} entregados`:'Sin pedidos'} accent="#3B82F6"/>
+      <Kpi icon={<i className="ti ti-circle-check" />} label="Entregados"         value={del.length}  sub={my.length?`${Math.round(del.length/my.length*100)}% efectividad`:''} subColor="#16A34A" accent="#22C55E"/>
+      <Kpi icon={<i className="ti ti-arrow-back-up"/>} label="Devueltos"          value={ret.length}  sub={ret.length?`${Math.round(ret.length/my.length*100)}% tasa dev.`:''} subColor="#EF4444" accent="#EF4444"/>
+      <Kpi icon={<i className="ti ti-coin"         />} label="Comisión pendiente" value={fmtK(pc)}    sub={tra.length?`${tra.length} en tránsito`:''} accent="#F59E0B"/>
+    </div>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 360px',gap:16}}>
+      <div style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:12,overflow:'hidden'}}>
+        <div style={{padding:'13px 18px',borderBottom:'1px solid #E5E7EB',display:'flex',alignItems:'center',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+          <span style={{fontSize:13,fontWeight:600,color:'#111827'}}>Pedidos recientes</span>
+          <div style={{display:'flex',gap:4}}>
+            {filters.map(x=><button key={x} onClick={()=>setF(x)} style={{fontSize:11,padding:'4px 10px',borderRadius:99,border:f===x?'1px solid #93C5FD':'1px solid #E5E7EB',background:f===x?'#EFF6FF':'transparent',color:f===x?'#1E40AF':'#6B7280',cursor:'pointer',fontWeight:f===x?500:400}}>{x}</button>)}
+          </div>
+        </div>
+        {rows.length===0?<Empty icon="shopping-cart" title="Sin pedidos" sub="Los pedidos aparecerán aquí"/>:
+        <div style={{overflowX:'auto'}}>
+          <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+            <thead><tr style={{background:'#FAFAFA'}}>
+              {['#','Cliente','Vendedor','Ciudad','Total','Estado','Comisión'].map(h=><th key={h} style={{padding:'9px 16px',textAlign:'left',fontWeight:500,fontSize:11,color:'#9CA3AF',borderBottom:'1px solid #E5E7EB',whiteSpace:'nowrap',textTransform:'uppercase',letterSpacing:'0.04em'}}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {rows.map((o,i)=><tr key={o.id} style={{borderBottom:i<rows.length-1?'1px solid #F4F4F5':'none'}}
+                onMouseEnter={e=>e.currentTarget.style.background='#FAFAFA'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <td style={{padding:'10px 16px',fontFamily:MONO,fontSize:11,color:'#9CA3AF'}}>#{o.num}</td>
+                <td style={{padding:'10px 16px',fontWeight:500,color:'#111827',whiteSpace:'nowrap'}}>{o.customer}</td>
+                <td style={{padding:'10px 16px',color:'#6B7280',whiteSpace:'nowrap'}}>{sellers.find(s=>s.id===o.seller_id)?.name||'—'}</td>
+                <td style={{padding:'10px 16px',color:'#6B7280'}}>{o.city||'—'}</td>
+                <td style={{padding:'10px 16px',fontFamily:MONO,fontWeight:500,color:'#111827',whiteSpace:'nowrap'}}>{fmt(o.total)}</td>
+                <td style={{padding:'10px 16px',whiteSpace:'nowrap'}}><SBadge status={o.status}/></td>
+                <td style={{padding:'10px 16px',whiteSpace:'nowrap'}}><CBadge status={o.comm_status} amount={o.comm}/></td>
+              </tr>)}
+            </tbody>
+          </table>
+        </div>}
+      </div>
+      <div style={{display:'flex',flexDirection:'column',gap:14}}>
+        <div style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:12,overflow:'hidden'}}>
+          <div style={{padding:'13px 18px',borderBottom:'1px solid #E5E7EB'}}><span style={{fontSize:13,fontWeight:600,color:'#111827'}}>Resumen comisiones</span></div>
+          {my.length===0?<div style={{padding:20,textAlign:'center',fontSize:12,color:'#D1D5DB'}}>Sin datos aún</div>:
+          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)'}}>
+            {[
+              {l:'Aprobadas', v:fmtK(my.filter(o=>o.comm_status==='aprobada').reduce((a,o)=>a+(o.comm||0),0)),  c:'#16A34A'},
+              {l:'Pendientes',v:fmtK(my.filter(o=>o.comm_status==='pendiente').reduce((a,o)=>a+(o.comm||0),0)), c:'#D97706'},
+              {l:'Pagadas',   v:fmtK(my.filter(o=>o.comm_status==='pagada').reduce((a,o)=>a+(o.comm||0),0)),    c:'#1E40AF'},
+            ].map((x,i)=><div key={x.l} style={{padding:'14px 16px',borderRight:i<2?'1px solid #E5E7EB':'none',textAlign:'center'}}>
+              <div style={{fontSize:18,fontWeight:700,color:x.c,fontFamily:MONO}}>{x.v}</div>
+              <div style={{fontSize:10,color:'#9CA3AF',marginTop:4}}>{x.l}</div>
+            </div>)}
+          </div>}
+        </div>
+        {user.role!=='vendedor'&&<div style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:12,overflow:'hidden'}}>
+          <div style={{padding:'13px 18px',borderBottom:'1px solid #E5E7EB'}}><span style={{fontSize:13,fontWeight:600,color:'#111827'}}>Vendedores — pago</span></div>
+          {sellers.length===0?<Empty icon="users" title="Sin vendedores" sub="Regístralos en Vendedores"/>:
+          sellers.map((s,i)=>{
+            const comm=orders.filter(o=>o.seller_id===s.id&&o.comm_status==='aprobada').reduce((a,o)=>a+(o.comm||0),0);
+            return <div key={s.id} style={{display:'flex',alignItems:'center',gap:12,padding:'11px 18px',borderBottom:i<sellers.length-1?'1px solid #F4F4F5':'none'}}>
+              <div style={{width:32,height:32,borderRadius:'50%',background:'#EFF6FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#1E40AF',flexShrink:0}}>
+                {s.name.split(' ').map(w=>w[0]).slice(0,2).join('')}
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontWeight:600,color:'#111827'}}>{s.name}</div>
+                <div style={{fontSize:11,color:'#9CA3AF'}}>{orders.filter(o=>o.seller_id===s.id&&o.status==='entregado').length} entregas</div>
+              </div>
+              <div style={{textAlign:'right',marginRight:8}}>
+                <div style={{fontSize:13,fontWeight:600,fontFamily:MONO,color:'#111827'}}>{fmtK(comm)}</div>
+                <div style={{fontSize:10,color:'#9CA3AF'}}>comisión</div>
+              </div>
+              <span style={{fontSize:11,fontWeight:600,padding:'4px 12px',borderRadius:99,background:s.paid?'#EFF6FF':'#FEF2F2',color:s.paid?'#1E40AF':'#991B1B'}}>{s.paid?'Pagado':'No pagado'}</span>
+            </div>;
+          })}
+        </div>}
+        <div style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:12,overflow:'hidden'}}>
+          <div style={{padding:'13px 18px',borderBottom:'1px solid #E5E7EB'}}><span style={{fontSize:13,fontWeight:600,color:'#111827'}}>Más vendidos</span></div>
+          {top.length===0?<Empty icon="package" title="Sin ventas" sub="Aparecerán aquí"/>:
+          <div style={{padding:'8px 0'}}>
+            {top.map(p=><div key={p.id} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 18px'}}>
+              <span style={{fontSize:12,color:'#6B7280',width:120,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</span>
+              <div style={{flex:1,height:5,background:'#F4F4F5',borderRadius:99,overflow:'hidden'}}>
+                <div style={{width:`${Math.round((p.sold/mx)*100)}%`,height:'100%',background:'#3B82F6',borderRadius:99}}/>
+              </div>
+              <span style={{fontSize:11,color:'#9CA3AF',width:36,textAlign:'right',fontFamily:MONO}}>{p.sold}</span>
+            </div>)}
+          </div>}
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+
+// ── Pedidos ───────────────────────────────────────────────────────────────────
+function Pedidos({orders,reload,sellers,products,lotes,user}) {
+  const [show,setShow]=useState(false);
+  const [toast,setToast]=useState(null);
+  const [saving,setSaving]=useState(false);
+  const st=(msg,type='ok')=>{setToast({msg,type});setTimeout(()=>setToast(null),2500);};
+  const B={customer:'',phone:'',city:'',address:'',neighborhood:'',seller_id:'',lote_id:'',tracking:'',notes:'',status:'pendiente',items:[{product_id:'',qty:1,price:0,comm:0}]};
+  const [form,setForm]=useState(B);
+  const s=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const si=(i,k,v)=>{
+    const it=[...form.items];it[i]={...it[i],[k]:v};
+    if(k==='product_id'){const p=products.find(p=>p.id===v);if(p){it[i].price=p.price;it[i].comm=p.commission;}}
+    setForm(f=>({...f,items:it}));
+  };
+  const tot=form.items.reduce((a,x)=>a+(x.price||0)*(x.qty||1),0);
+  const totC=form.items.reduce((a,x)=>a+(x.comm||0)*(x.qty||1),0);
+  const save=async()=>{
+    if(!form.customer.trim()) return st('El nombre del cliente es obligatorio','error');
+    setSaving(true);
+    const cs=form.status==='entregado'?'aprobada':form.status==='devuelto'?'anulada':'pendiente';
+    const num=String(orders.length+1).padStart(4,'0');
+    const {data:order,error}=await sb.from('orders').insert({
+      num,customer:form.customer,phone:form.phone,city:form.city,
+      address:form.address,neighborhood:form.neighborhood,
+      seller_id:form.seller_id||null,lote_id:form.lote_id||null,
+      tracking:form.tracking,notes:form.notes,status:form.status,
+      total:tot,comm:totC,comm_status:cs,created_by:user.id,
+      date:new Date().toLocaleDateString('es-CO')
+    }).select().single();
+    if(error){setSaving(false);return st('Error al guardar pedido','error');}
+    if(form.items.some(it=>it.product_id)){
+      await sb.from('order_items').insert(form.items.filter(it=>it.product_id).map(it=>({order_id:order.id,product_id:it.product_id,qty:it.qty,price:it.price,comm:it.comm})));
+    }
+    setSaving(false);setShow(false);setForm(B);reload();st('Pedido guardado ✓');
+  };
+  const changeStatus=async(id,status)=>{
+    const cs=status==='entregado'?'aprobada':status==='devuelto'?'anulada':status==='reclamo'?'bloqueada':'pendiente';
+    await sb.from('orders').update({status,comm_status:cs}).eq('id',id);
+    reload();
+  };
+  const my=user.role==='vendedor'?orders.filter(o=>o.created_by===user.id):orders;
+  return <div style={{display:'flex',flexDirection:'column',gap:20}}>
+    {toast&&<Toast msg={toast.msg} type={toast.type}/>}
+    <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between'}}>
+      <div><h1 style={{fontSize:18,fontWeight:600,color:'#111827'}}>Pedidos</h1><p style={{fontSize:12,color:'#9CA3AF',marginTop:3}}>{my.length} pedidos</p></div>
+      {CAN[user.role]?.pedidos&&<Btn onClick={()=>setShow(true)}><i className="ti ti-plus" style={{fontSize:14}}/>Nuevo pedido</Btn>}
+    </div>
+    <div style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:12,overflow:'hidden'}}>
+      {my.length===0?<Empty icon="shopping-cart" title="Sin pedidos" sub="Registra tu primer pedido" action="Nuevo pedido" onAction={()=>setShow(true)}/>:
+      <div style={{overflowX:'auto'}}>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+          <thead><tr style={{background:'#FAFAFA'}}>
+            {['#','Fecha','Cliente','Tel','Ciudad','Vendedor','Lote','Total','Guía','Estado','Comisión',''].map(h=><th key={h} style={{padding:'9px 14px',textAlign:'left',fontWeight:500,fontSize:11,color:'#9CA3AF',borderBottom:'1px solid #E5E7EB',whiteSpace:'nowrap',textTransform:'uppercase',letterSpacing:'0.04em'}}>{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {my.map((o,i)=><tr key={o.id} style={{borderBottom:i<my.length-1?'1px solid #F4F4F5':'none'}}
+              onMouseEnter={e=>e.currentTarget.style.background='#FAFAFA'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+              <td style={{padding:'10px 14px',fontFamily:MONO,fontSize:11,color:'#9CA3AF'}}>#{o.num}</td>
+              <td style={{padding:'10px 14px',color:'#6B7280',whiteSpace:'nowrap'}}>{o.date}</td>
+              <td style={{padding:'10px 14px',fontWeight:500,color:'#111827',whiteSpace:'nowrap'}}>{o.customer}</td>
+              <td style={{padding:'10px 14px',color:'#6B7280'}}>{o.phone||'—'}</td>
+              <td style={{padding:'10px 14px',color:'#6B7280'}}>{o.city||'—'}</td>
+              <td style={{padding:'10px 14px',color:'#6B7280',whiteSpace:'nowrap'}}>{sellers.find(x=>x.id===o.seller_id)?.name||'—'}</td>
+              <td style={{padding:'10px 14px',color:'#6B7280'}}>{lotes.find(x=>x.id===o.lote_id)?.label||'—'}</td>
+              <td style={{padding:'10px 14px',fontFamily:MONO,fontWeight:500,color:'#111827',whiteSpace:'nowrap'}}>{fmt(o.total)}</td>
+              <td style={{padding:'10px 14px',fontFamily:MONO,fontSize:11,color:'#9CA3AF'}}>{o.tracking||'—'}</td>
+              <td style={{padding:'10px 14px',whiteSpace:'nowrap'}}><SBadge status={o.status}/></td>
+              <td style={{padding:'10px 14px',whiteSpace:'nowrap'}}><CBadge status={o.comm_status} amount={o.comm}/></td>
+              <td style={{padding:'10px 14px'}}>
+                {CAN[user.role]?.estado&&<select style={{...SEL,width:'auto',fontSize:11,padding:'4px 8px'}} value={o.status} onChange={e=>changeStatus(o.id,e.target.value)}>
+                  {Object.entries(SC).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+                </select>}
+              </td>
+            </tr>)}
+          </tbody>
+        </table>
+      </div>}
+    </div>
+    {show&&<Modal title="Nuevo pedido" onClose={()=>setShow(false)} wide>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 12px'}}>
+        <F label="Cliente *"><input style={INP} value={form.customer} onChange={e=>s('customer',e.target.value)} placeholder="Nombre del cliente"/></F>
+        <F label="Teléfono"><input style={INP} value={form.phone} onChange={e=>s('phone',e.target.value)} placeholder="Cel / Whatsapp"/></F>
+        <F label="Ciudad"><input style={INP} value={form.city} onChange={e=>s('city',e.target.value)} placeholder="Ciudad"/></F>
+        <F label="Barrio"><input style={INP} value={form.neighborhood} onChange={e=>s('neighborhood',e.target.value)} placeholder="Barrio"/></F>
+        <F label="Dirección" span2><input style={INP} value={form.address} onChange={e=>s('address',e.target.value)} placeholder="Dirección completa"/></F>
+        <F label="Vendedor"><select style={SEL} value={form.seller_id} onChange={e=>s('seller_id',e.target.value)}><option value="">— Seleccionar —</option>{sellers.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></F>
+        <F label="Lote"><select style={SEL} value={form.lote_id} onChange={e=>s('lote_id',e.target.value)}><option value="">— Sin lote —</option>{lotes.filter(x=>x.open).map(x=><option key={x.id} value={x.id}>{x.label}</option>)}</select></F>
+        <F label="Estado"><select style={SEL} value={form.status} onChange={e=>s('status',e.target.value)}>{Object.entries(SC).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}</select></F>
+        <F label="Número de guía"><input style={INP} value={form.tracking} onChange={e=>s('tracking',e.target.value)} placeholder="Guía de envío"/></F>
+      </div>
+      <div style={{marginTop:16}}>
+        <div style={{fontSize:12,fontWeight:600,color:'#374151',marginBottom:8}}>Productos del pedido</div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 55px 95px 95px 28px',gap:4,marginBottom:6}}>
+          {['Producto','Cant.','Precio','Comisión',''].map(h=><div key={h} style={{fontSize:10,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.04em',paddingLeft:4}}>{h}</div>)}
+        </div>
+        {form.items.map((it,i)=><div key={i} style={{display:'grid',gridTemplateColumns:'1fr 55px 95px 95px 28px',gap:4,marginBottom:6,alignItems:'center'}}>
+          <select style={SEL} value={it.product_id} onChange={e=>si(i,'product_id',e.target.value)}><option value="">— Producto —</option>{products.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
+          <input style={{...INP,textAlign:'center',padding:'8px 4px'}} type="number" min={1} value={it.qty} onChange={e=>si(i,'qty',parseInt(e.target.value)||1)}/>
+          <input style={{...INP,fontFamily:MONO,padding:'8px 6px'}} type="number" value={it.price} onChange={e=>si(i,'price',parseFloat(e.target.value)||0)}/>
+          <input style={{...INP,fontFamily:MONO,padding:'8px 6px'}} type="number" value={it.comm} onChange={e=>si(i,'comm',parseFloat(e.target.value)||0)}/>
+          {form.items.length>1?<button onClick={()=>setForm(f=>({...f,items:f.items.filter((_,idx)=>idx!==i)}))} style={{background:'none',border:'none',cursor:'pointer',color:'#EF4444'}}><i className="ti ti-x"/></button>:<div/>}
+        </div>)}
+        <button onClick={()=>setForm(f=>({...f,items:[...f.items,{product_id:'',qty:1,price:0,comm:0}]}))} style={{fontSize:11,color:'#3B82F6',background:'none',border:'none',cursor:'pointer',display:'flex',alignItems:'center',gap:4,marginTop:4}}>
+          <i className="ti ti-plus"/>Agregar producto
+        </button>
+      </div>
+      <div style={{marginTop:12,padding:'10px 14px',background:'#F9FAFB',borderRadius:8,display:'flex',justifyContent:'space-between',fontSize:12}}>
+        <span style={{color:'#6B7280'}}>Total: <strong style={{color:'#111827',fontFamily:MONO}}>{fmt(tot)}</strong></span>
+        <span style={{color:'#6B7280'}}>Comisión: <strong style={{color:'#D97706',fontFamily:MONO}}>{fmt(totC)}</strong></span>
+      </div>
+      <div style={{marginTop:12}}><F label="Observaciones"><textarea style={{...INP,resize:'vertical'}} rows={2} value={form.notes} onChange={e=>s('notes',e.target.value)} placeholder="Observaciones opcionales"/></F></div>
+      <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:8}}>
+        <Btn secondary onClick={()=>setShow(false)}>Cancelar</Btn>
+        <Btn onClick={save}><i className="ti ti-check" style={{fontSize:14}}/>{saving?'Guardando...':'Guardar pedido'}</Btn>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+// ── Productos ─────────────────────────────────────────────────────────────────
+function Productos({products,reload}) {
+  const [show,setShow]=useState(false);
+  const [editing,setEditing]=useState(null);
+  const [delConfirm,setDelConfirm]=useState(null);
+  const [toast,setToast]=useState(null);
+  const st=(msg,type='ok')=>{setToast({msg,type});setTimeout(()=>setToast(null),2500);};
+  const B={name:'',sku:'',category:'',brand:'',variant:'',color:'',price:0,cost:0,commission:0,stock:0,min_stock:0,active:true};
+  const [form,setForm]=useState(B);
+  const s=(k,v)=>setForm(f=>({...f,[k]:v}));
+
+  const openNew=()=>{setEditing(null);setForm(B);setShow(true);};
+  const openEdit=p=>{setEditing(p.id);setForm({name:p.name,sku:p.sku||'',category:p.category||'',brand:p.brand||'',variant:p.variant||'',color:p.color||'',price:p.price||0,cost:p.cost||0,commission:p.commission||0,stock:p.stock||0,min_stock:p.min_stock||0,active:p.active});setShow(true);};
+
+  const save=async()=>{
+    if(!form.name.trim()) return st('El nombre es obligatorio','error');
+    if(editing){
+      const {error}=await sb.from('products').update(form).eq('id',editing);
+      if(error) return st('Error al actualizar','error');
+      st('Producto actualizado ✓');
+    } else {
+      const {error}=await sb.from('products').insert(form);
+      if(error) return st('Error al guardar','error');
+      st('Producto guardado ✓');
+    }
+    setShow(false);setForm(B);setEditing(null);reload();
+  };
+
+  const toggle=async(id,active)=>{await sb.from('products').update({active:!active}).eq('id',id);reload();};
+
+  const deleteProduct=async(id)=>{
+    const {error}=await sb.from('products').delete().eq('id',id);
+    if(error) return st('No se puede eliminar — tiene pedidos asociados','warn');
+    setDelConfirm(null);reload();st('Producto eliminado');
+  };
+
+  return <div style={{display:'flex',flexDirection:'column',gap:20}}>
+    {toast&&<Toast msg={toast.msg} type={toast.type}/>}
+    <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between'}}>
+      <div><h1 style={{fontSize:18,fontWeight:600,color:'#111827'}}>Productos</h1><p style={{fontSize:12,color:'#9CA3AF',marginTop:3}}>{products.length} productos</p></div>
+      <Btn onClick={openNew}><i className="ti ti-plus" style={{fontSize:14}}/>Nuevo producto</Btn>
+    </div>
+    <div style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:12,overflow:'hidden'}}>
+      {products.length===0?<Empty icon="package" title="Sin productos" sub="Registra tu catálogo" action="Nuevo producto" onAction={openNew}/>:
+      <div style={{overflowX:'auto'}}>
+        <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+          <thead><tr style={{background:'#FAFAFA'}}>
+            {['Nombre','SKU','Categoría','Marca','Variante','Precio','Costo','Comisión','Stock','Mín.','Estado',''].map(h=><th key={h} style={{padding:'9px 14px',textAlign:'left',fontWeight:500,fontSize:11,color:'#9CA3AF',borderBottom:'1px solid #E5E7EB',whiteSpace:'nowrap',textTransform:'uppercase',letterSpacing:'0.04em'}}>{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {products.map((p,i)=><tr key={p.id} style={{borderBottom:i<products.length-1?'1px solid #F4F4F5':'none'}}
+              onMouseEnter={e=>e.currentTarget.style.background='#FAFAFA'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+              <td style={{padding:'10px 14px',fontWeight:500,color:'#111827'}}>{p.name}</td>
+              <td style={{padding:'10px 14px',fontFamily:MONO,fontSize:11,color:'#9CA3AF'}}>{p.sku||'—'}</td>
+              <td style={{padding:'10px 14px',color:'#6B7280'}}>{p.category||'—'}</td>
+              <td style={{padding:'10px 14px',color:'#6B7280'}}>{p.brand||'—'}</td>
+              <td style={{padding:'10px 14px',color:'#6B7280'}}>{p.variant||'—'}</td>
+              <td style={{padding:'10px 14px',fontFamily:MONO,fontWeight:500,color:'#111827'}}>{fmt(p.price)}</td>
+              <td style={{padding:'10px 14px',fontFamily:MONO,color:'#6B7280'}}>{fmt(p.cost)}</td>
+              <td style={{padding:'10px 14px',fontFamily:MONO,fontWeight:600,color:'#D97706'}}>{fmt(p.commission)}</td>
+              <td style={{padding:'10px 14px',fontFamily:MONO,fontWeight:600,color:p.stock<=p.min_stock?'#EF4444':'#111827'}}>{p.stock}</td>
+              <td style={{padding:'10px 14px',fontFamily:MONO,color:'#9CA3AF'}}>{p.min_stock}</td>
+              <td style={{padding:'10px 14px'}}><span style={{fontSize:11,fontWeight:500,padding:'3px 9px',borderRadius:99,background:p.active?'#ECFDF3':'#F4F4F5',color:p.active?'#166534':'#9CA3AF'}}>{p.active?'Activo':'Inactivo'}</span></td>
+              <td style={{padding:'10px 14px'}}>
+                <div style={{display:'flex',gap:4'}}>
+                  <button onClick={()=>openEdit(p)} title="Editar" style={{background:'none',border:'1px solid #E5E7EB',borderRadius:6,padding:'4px 8px',cursor:'pointer',color:'#6B7280',fontSize:12,display:'flex',alignItems:'center',gap:4}}>
+                    <i className="ti ti-pencil" style={{fontSize:13}}/>Editar
+                  </button>
+                  <button onClick={()=>toggle(p.id,p.active)} style={{background:'none',border:'1px solid #E5E7EB',borderRadius:6,padding:'4px 8px',cursor:'pointer',color:'#6B7280',fontSize:12,marginLeft:4}}>
+                    {p.active?'Desactivar':'Activar'}
+                  </button>
+                  <button onClick={()=>setDelConfirm(p)} title="Eliminar" style={{background:'none',border:'1px solid #FECACA',borderRadius:6,padding:'4px 8px',cursor:'pointer',color:'#EF4444',fontSize:12,marginLeft:4,display:'flex',alignItems:'center',gap:4}}>
+                    <i className="ti ti-trash" style={{fontSize:13}}/>
+                  </button>
+                </div>
+              </td>
+            </tr>)}
+          </tbody>
+        </table>
+      </div>}
+    </div>
+
+    {/* Modal crear/editar */}
+    {show&&<Modal title={editing?'Editar producto':'Nuevo producto'} onClose={()=>{setShow(false);setEditing(null);}}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 12px'}}>
+        <F label="Nombre *"><input style={INP} value={form.name} onChange={e=>s('name',e.target.value)} placeholder="Nombre del producto"/></F>
+        <F label="SKU"><input style={INP} value={form.sku} onChange={e=>s('sku',e.target.value)} placeholder="Código"/></F>
+        <F label="Categoría"><input style={INP} value={form.category} onChange={e=>s('category',e.target.value)} placeholder="Ej: Cables, Tomas..."/></F>
+        <F label="Marca"><input style={INP} value={form.brand} onChange={e=>s('brand',e.target.value)} placeholder="Marca"/></F>
+        <F label="Variante"><input style={INP} value={form.variant} onChange={e=>s('variant',e.target.value)} placeholder="Ej: #12, 1/2&quot;..."/></F>
+        <F label="Color / Medida"><input style={INP} value={form.color} onChange={e=>s('color',e.target.value)} placeholder="Color o calibre"/></F>
+        <F label="Precio ($)"><input style={{...INP,fontFamily:MONO}} type="number" value={form.price} onChange={e=>s('price',parseFloat(e.target.value)||0)}/></F>
+        <F label="Costo ($)"><input style={{...INP,fontFamily:MONO}} type="number" value={form.cost} onChange={e=>s('cost',parseFloat(e.target.value)||0)}/></F>
+        <F label="Comisión ($)" span2>
+          <input style={{...INP,fontFamily:MONO}} type="number" value={form.commission} onChange={e=>s('commission',parseFloat(e.target.value)||0)}/>
+          {form.price>0&&<div style={{marginTop:8}}>
+            <input type="range" min={0} max={form.price} step={100} value={form.commission} onChange={e=>s('commission',parseFloat(e.target.value))} style={{width:'100%'}}/>
+            <div style={{fontSize:11,color:'#9CA3AF',marginTop:2}}>{Math.round((form.commission/form.price)*100)}% del precio</div>
+          </div>}
+        </F>
+        <F label="Stock"><input style={{...INP,fontFamily:MONO}} type="number" value={form.stock} onChange={e=>s('stock',parseInt(e.target.value)||0)}/></F>
+        <F label="Stock mínimo"><input style={{...INP,fontFamily:MONO}} type="number" value={form.min_stock} onChange={e=>s('min_stock',parseInt(e.target.value)||0)}/></F>
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:8}}>
+        <Btn secondary onClick={()=>{setShow(false);setEditing(null);}}>Cancelar</Btn>
+        <Btn onClick={save}><i className="ti ti-check" style={{fontSize:14}}/>{editing?'Guardar cambios':'Crear producto'}</Btn>
+      </div>
+    </Modal>}
+
+    {/* Confirm eliminar */}
+    {delConfirm&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.35)',zIndex:200,display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+      <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:400,padding:24}}>
+        <div style={{fontSize:15,fontWeight:600,color:'#111827',marginBottom:8}}>¿Eliminar producto?</div>
+        <div style={{fontSize:13,color:'#6B7280',marginBottom:20}}>
+          Vas a eliminar <strong>{delConfirm.name}</strong>. Si tiene pedidos asociados no se puede eliminar.
+        </div>
+        <div style={{display:'flex',justifyContent:'flex-end',gap:8}}>
+          <Btn secondary onClick={()=>setDelConfirm(null)}>Cancelar</Btn>
+          <button onClick={()=>deleteProduct(delConfirm.id)} style={{display:'flex',alignItems:'center',gap:5,border:'none',borderRadius:8,padding:'9px 16px',fontSize:13,fontWeight:600,cursor:'pointer',background:'#EF4444',color:'#fff'}}>
+            <i className="ti ti-trash" style={{fontSize:14}}/>Eliminar
+          </button>
+        </div>
+      </div>
+    </div>}
+  </div>;
+}
+
+// ── Vendedores ────────────────────────────────────────────────────────────────
+function Vendedores({sellers,reload,orders,user}) {
+  const [show,setShow]=useState(false);
+  const [toast,setToast]=useState(null);
+  const st=(msg,type='ok')=>{setToast({msg,type});setTimeout(()=>setToast(null),2500);};
+  const B={name:'',phone:'',email:'',weekly_goal:0,monthly_goal:0,active:true,paid:false};
+  const [form,setForm]=useState(B);
+  const s=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const save=async()=>{
+    if(!form.name.trim()) return st('El nombre es obligatorio','error');
+    const {error}=await sb.from('sellers').insert(form);
+    if(error) return st('Error al guardar','error');
+    setShow(false);setForm(B);reload();st('Vendedor guardado ✓');
+  };
+  const togglePaid=async(id,paid)=>{
+    if(!CAN[user.role]?.pagar) return st('No tienes permiso','warn');
+    await sb.from('sellers').update({paid:!paid}).eq('id',id);reload();
+  };
+  return <div style={{display:'flex',flexDirection:'column',gap:20}}>
+    {toast&&<Toast msg={toast.msg} type={toast.type}/>}
+    <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between'}}>
+      <div><h1 style={{fontSize:18,fontWeight:600,color:'#111827'}}>Vendedores</h1><p style={{fontSize:12,color:'#9CA3AF',marginTop:3}}>{sellers.length} vendedores</p></div>
+      {user.role==='admin'&&<Btn onClick={()=>setShow(true)}><i className="ti ti-plus" style={{fontSize:14}}/>Nuevo vendedor</Btn>}
+    </div>
+    {sellers.length===0?<div style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:12}}><Empty icon="users" title="Sin vendedores" sub="Registra tu equipo" action={user.role==='admin'?'Nuevo vendedor':undefined} onAction={()=>setShow(true)}/></div>:
+    <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(280px,1fr))',gap:14}}>
+      {sellers.map(s=>{
+        const so=orders.filter(o=>o.seller_id===s.id);
+        const del=so.filter(o=>o.status==='entregado').length;
+        const ret=so.filter(o=>o.status==='devuelto').length;
+        const cm=so.filter(o=>o.comm_status==='aprobada').reduce((a,o)=>a+(o.comm||0),0);
+        const ef=so.length?Math.round((del/so.length)*100):0;
+        return <div key={s.id} style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:12,overflow:'hidden'}}>
+          <div style={{padding:'16px 18px',borderBottom:'1px solid #E5E7EB',display:'flex',alignItems:'center',gap:12}}>
+            <div style={{width:40,height:40,borderRadius:'50%',background:'#EFF6FF',display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:700,color:'#1E40AF'}}>
+              {s.name.split(' ').map(w=>w[0]).slice(0,2).join('')}
+            </div>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:600,color:'#111827'}}>{s.name}</div>
+              <div style={{fontSize:11,color:'#9CA3AF'}}>{s.phone||s.email||'Sin contacto'}</div>
+            </div>
+            <span style={{fontSize:11,fontWeight:500,padding:'3px 9px',borderRadius:99,background:s.active?'#ECFDF3':'#F4F4F5',color:s.active?'#166534':'#9CA3AF'}}>{s.active?'Activo':'Inactivo'}</span>
+          </div>
+          <div style={{padding:'12px 18px',display:'grid',gridTemplateColumns:'repeat(3,1fr)',borderBottom:'1px solid #E5E7EB'}}>
+            {[{l:'Entregas',v:del},{l:'Devueltas',v:ret},{l:'Efectividad',v:`${ef}%`}].map(x=><div key={x.l} style={{textAlign:'center'}}>
+              <div style={{fontSize:16,fontWeight:700,color:'#111827',fontFamily:MONO}}>{x.v}</div>
+              <div style={{fontSize:10,color:'#9CA3AF',marginTop:2}}>{x.l}</div>
+            </div>)}
+          </div>
+          <div style={{padding:'12px 18px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+            <div>
+              <div style={{fontSize:14,fontWeight:700,color:'#111827',fontFamily:MONO}}>{fmtK(cm)}</div>
+              <div style={{fontSize:10,color:'#9CA3AF'}}>comisión aprobada</div>
+            </div>
+            <button onClick={()=>togglePaid(s.id,s.paid)} style={{fontSize:12,fontWeight:600,padding:'6px 16px',borderRadius:99,border:'none',cursor:CAN[user.role]?.pagar?'pointer':'default',background:s.paid?'#EFF6FF':'#FEF2F2',color:s.paid?'#1E40AF':'#991B1B',opacity:CAN[user.role]?.pagar?1:0.5}}>
+              {s.paid?'Pagado':'No pagado'}
+            </button>
+          </div>
+        </div>;
+      })}
+    </div>}
+    {show&&<Modal title="Nuevo vendedor" onClose={()=>setShow(false)}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 12px'}}>
+        <F label="Nombre *"><input style={INP} value={form.name} onChange={e=>s('name',e.target.value)} placeholder="Nombre completo"/></F>
+        <F label="Teléfono"><input style={INP} value={form.phone} onChange={e=>s('phone',e.target.value)} placeholder="Cel / WhatsApp"/></F>
+        <F label="Email" span2><input style={INP} value={form.email} onChange={e=>s('email',e.target.value)} placeholder="correo@ejemplo.com"/></F>
+        <F label="Meta semanal ($)"><input style={{...INP,fontFamily:MONO}} type="number" value={form.weekly_goal} onChange={e=>s('weekly_goal',parseFloat(e.target.value)||0)}/></F>
+        <F label="Meta mensual ($)"><input style={{...INP,fontFamily:MONO}} type="number" value={form.monthly_goal} onChange={e=>s('monthly_goal',parseFloat(e.target.value)||0)}/></F>
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:8}}>
+        <Btn secondary onClick={()=>setShow(false)}>Cancelar</Btn>
+        <Btn onClick={save}><i className="ti ti-check" style={{fontSize:14}}/>Guardar</Btn>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+// ── Lotes ─────────────────────────────────────────────────────────────────────
+function Lotes({lotes,reload,orders}) {
+  const [show,setShow]=useState(false);
+  const [toast,setToast]=useState(null);
+  const st=(msg,type='ok')=>{setToast({msg,type});setTimeout(()=>setToast(null),2500);};
+  const B={label:'',date_start:'',date_end:'',ads:0};
+  const [form,setForm]=useState(B);
+  const s=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const save=async()=>{
+    if(!form.label.trim()) return st('El nombre del lote es obligatorio','error');
+    const {error}=await sb.from('lotes').insert({...form,open:true});
+    if(error) return st('Error al crear lote','error');
+    setShow(false);setForm(B);reload();st('Lote creado ✓');
+  };
+  const toggle=async(id,open)=>{await sb.from('lotes').update({open:!open}).eq('id',id);reload();};
+  const setAds=async(id,v)=>{await sb.from('lotes').update({ads:parseFloat(v)||0}).eq('id',id);reload();};
+  return <div style={{display:'flex',flexDirection:'column',gap:20}}>
+    {toast&&<Toast msg={toast.msg} type={toast.type}/>}
+    <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between'}}>
+      <div><h1 style={{fontSize:18,fontWeight:600,color:'#111827'}}>Lotes semanales</h1><p style={{fontSize:12,color:'#9CA3AF',marginTop:3}}>Rentabilidad por semana</p></div>
+      <Btn onClick={()=>setShow(true)}><i className="ti ti-plus" style={{fontSize:14}}/>Nuevo lote</Btn>
+    </div>
+    {lotes.length===0?<div style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:12}}><Empty icon="layers-subtract" title="Sin lotes" sub="Crea tu primer lote semanal" action="Nuevo lote" onAction={()=>setShow(true)}/></div>:
+    lotes.map(l=>{
+      const lo=orders.filter(o=>o.lote_id===l.id);
+      const del=lo.filter(o=>o.status==='entregado');
+      const ret=lo.filter(o=>o.status==='devuelto');
+      const tra=lo.filter(o=>o.status==='transito');
+      const sal=del.reduce((a,o)=>a+(o.total||0),0);
+      const com=del.reduce((a,o)=>a+(o.comm||0),0);
+      const net=sal-com-(l.ads||0);
+      const pct=lo.length?Math.round((del.length/lo.length)*100):0;
+      const roas=l.ads>0?(sal/l.ads).toFixed(1):null;
+      return <div key={l.id} style={{background:'#fff',border:'1px solid #E5E7EB',borderLeft:`3px solid ${l.open?'#F59E0B':'#22C55E'}`,borderRadius:12,overflow:'hidden',marginBottom:12}}>
+        <div style={{padding:'13px 18px',borderBottom:'1px solid #E5E7EB',display:'flex',alignItems:'center',gap:12}}>
+          <div style={{flex:1}}>
+            <span style={{fontSize:13,fontWeight:600,color:'#111827'}}>{l.label}</span>
+            {(l.date_start||l.date_end)&&<span style={{fontSize:11,color:'#9CA3AF',marginLeft:10}}>{l.date_start}{l.date_end?` – ${l.date_end}`:''}</span>}
+            <span style={{fontSize:11,color:'#9CA3AF',marginLeft:10}}>· {lo.length} pedidos</span>
+          </div>
+          <span style={{fontSize:11,fontWeight:500,padding:'3px 10px',borderRadius:99,background:l.open?'#FFFBEB':'#ECFDF3',color:l.open?'#92400E':'#166534',display:'flex',alignItems:'center',gap:4}}>
+            <span style={{width:6,height:6,borderRadius:'50%',background:l.open?'#F59E0B':'#22C55E'}}/>{l.open?'Abierto':'Cerrado'}
+          </span>
+          <div style={{display:'flex',alignItems:'center',gap:7,fontSize:11,color:'#9CA3AF'}}>
+            <span>{l.open?'Cerrar':'Reabrir'}</span>
+            <div onClick={()=>toggle(l.id,l.open)} style={{width:36,height:20,borderRadius:99,background:l.open?'#D1D5DB':'#22C55E',position:'relative',cursor:'pointer',transition:'background .2s',flexShrink:0}}>
+              <div style={{position:'absolute',top:2,left:l.open?2:18,width:16,height:16,borderRadius:'50%',background:'#fff',transition:'left .2s'}}/>
+            </div>
+          </div>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',borderBottom:'1px solid #E5E7EB'}}>
+          <div style={{padding:'12px 18px',borderRight:'1px solid #E5E7EB'}}>
+            <div style={{fontSize:10,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:5}}>Ventas brutas</div>
+            <div style={{fontSize:20,fontWeight:600,fontFamily:MONO,color:sal===0?'#D1D5DB':'#111827'}}>{sal===0?'—':fmtK(sal)}</div>
+            <div style={{fontSize:11,color:'#9CA3AF',marginTop:3}}>{del.length} entregados</div>
+          </div>
+          <div style={{padding:'12px 18px',borderRight:'1px solid #E5E7EB'}}>
+            <div style={{fontSize:10,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:5}}>Avance</div>
+            <div style={{fontSize:20,fontWeight:600,fontFamily:MONO,color:lo.length===0?'#D1D5DB':'#111827'}}>{lo.length===0?'—':`${del.length}/${lo.length}`}</div>
+            {lo.length>0&&<div style={{display:'flex',alignItems:'center',gap:6,marginTop:5}}>
+              <div style={{flex:1,height:4,background:'#F4F4F5',borderRadius:99,overflow:'hidden'}}>
+                <div style={{width:`${pct}%`,height:'100%',background:pct>=80?'#22C55E':pct>=60?'#F59E0B':'#EF4444',borderRadius:99}}/>
+              </div>
+              <span style={{fontSize:10,color:'#9CA3AF',fontFamily:MONO}}>{pct}%</span>
+            </div>}
+            {l.open&&tra.length>0&&<div style={{fontSize:10,color:'#F59E0B',marginTop:3}}>{tra.length} en tránsito</div>}
+          </div>
+          <div style={{padding:'12px 18px',borderRight:'1px solid #E5E7EB'}}>
+            <div style={{fontSize:10,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:5}}>Devoluciones</div>
+            <div style={{fontSize:20,fontWeight:600,fontFamily:MONO,color:ret.length>0?'#EF4444':lo.length===0?'#D1D5DB':'#111827'}}>{lo.length===0?'—':ret.length}</div>
+            {lo.length>0&&<div style={{fontSize:11,color:'#9CA3AF',marginTop:3}}>{Math.round((ret.length/lo.length)*100)}% tasa dev.</div>}
+          </div>
+          <div style={{padding:'12px 18px'}}>
+            <div style={{fontSize:10,color:'#9CA3AF',textTransform:'uppercase',letterSpacing:'0.05em',marginBottom:5}}>Gasto pauta</div>
+            <div style={{display:'flex',alignItems:'center',gap:4,marginTop:4}}>
+              <span style={{fontSize:12,color:'#9CA3AF'}}>$</span>
+              <input style={{border:'1px solid #E5E7EB',borderRadius:6,padding:'4px 8px',fontSize:13,fontFamily:MONO,fontWeight:600,color:'#111827',width:120,outline:'none'}} type="number" defaultValue={l.ads||0} onBlur={e=>setAds(l.id,e.target.value)}/>
+            </div>
+            {roas&&<div style={{fontSize:10,color:'#9CA3AF',marginTop:4}}>ROAS: {roas}x</div>}
+          </div>
+        </div>
+        <div style={{padding:'12px 18px',display:'flex',alignItems:'center',gap:0,flexWrap:'wrap'}}>
+          {[
+            {label:'Ventas',     val:sal===0?'—':fmtK(sal),         color:'#111827'},
+            {label:'Comisiones', val:com===0?'—':`− ${fmtK(com)}`,  color:'#EF4444'},
+            {label:'Pauta',      val:!l.ads?'—':`− ${fmtK(l.ads)}`, color:'#EF4444'},
+          ].map((x,i)=><div key={x.label} style={{display:'flex',alignItems:'center'}}>
+            <div style={{padding:'0 14px',textAlign:'center'}}>
+              <div style={{fontSize:10,color:'#9CA3AF',marginBottom:3}}>{x.label}</div>
+              <div style={{fontSize:13,fontWeight:600,color:x.color,fontFamily:MONO}}>{x.val}</div>
+            </div>
+            {i<2&&<span style={{color:'#D1D5DB',fontSize:14}}>→</span>}
+          </div>)}
+          <div style={{display:'flex',alignItems:'center'}}>
+            <span style={{color:'#D1D5DB',fontSize:14,marginRight:14}}>=</span>
+            <div style={{padding:'8px 14px',background:lo.length===0?'#F4F4F5':net>0?'#ECFDF3':'#FEF2F2',borderRadius:8}}>
+              <div style={{fontSize:10,color:lo.length===0?'#9CA3AF':net>0?'#166534':'#991B1B',marginBottom:3}}>Utilidad neta</div>
+              <div style={{fontSize:16,fontWeight:700,fontFamily:MONO,color:lo.length===0?'#D1D5DB':net>0?'#16A34A':'#EF4444'}}>{lo.length===0?'—':fmtK(net)}</div>
+            </div>
+          </div>
+          <div style={{marginLeft:'auto',padding:'8px 14px',borderRadius:8,background:lo.length===0?'#F4F4F5':l.open?'#FFFBEB':net>0?'#ECFDF3':'#FEF2F2',display:'flex',alignItems:'center',gap:8}}>
+            <i className={`ti ti-${lo.length===0?'clock':l.open?'clock':net>0?'trending-up':'alert-triangle'}`} style={{fontSize:16,color:lo.length===0?'#D1D5DB':l.open?'#F59E0B':net>0?'#16A34A':'#EF4444'}}/>
+            <div>
+              <div style={{fontSize:12,fontWeight:600,color:lo.length===0?'#9CA3AF':l.open?'#92400E':net>0?'#166534':'#991B1B'}}>
+                {lo.length===0?'Sin pedidos':l.open?'Lote abierto':net>0?'Rentable':'Revisar pauta'}
+              </div>
+              <div style={{fontSize:10,color:'#9CA3AF',marginTop:1}}>
+                {lo.length===0?'Asigna pedidos':l.open?`${tra.length} pendientes`:roas?`ROAS ${roas}x`:'Sin pauta'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>;
+    })}
+    {show&&<Modal title="Nuevo lote" onClose={()=>setShow(false)}>
+      <F label="Nombre del lote *"><input style={INP} value={form.label} onChange={e=>s('label',e.target.value)} placeholder="Ej: Semana 20 — Mayo 2026"/></F>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 12px'}}>
+        <F label="Fecha inicio"><input style={INP} type="date" value={form.date_start} onChange={e=>s('date_start',e.target.value)}/></F>
+        <F label="Fecha fin"><input style={INP} type="date" value={form.date_end} onChange={e=>s('date_end',e.target.value)}/></F>
+      </div>
+      <F label="Gasto de pauta ($)"><input style={{...INP,fontFamily:MONO}} type="number" value={form.ads} onChange={e=>s('ads',parseFloat(e.target.value)||0)} placeholder="0"/></F>
+      <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:8}}>
+        <Btn secondary onClick={()=>setShow(false)}>Cancelar</Btn>
+        <Btn onClick={save}><i className="ti ti-check" style={{fontSize:14}}/>Crear lote</Btn>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+// ── Usuarios ──────────────────────────────────────────────────────────────────
+function Usuarios({currentUser}) {
+  const [users,setUsers]=useState([]);
+  const [show,setShow]=useState(false);
+  const [toast,setToast]=useState(null);
+  const st=(msg,type='ok')=>{setToast({msg,type});setTimeout(()=>setToast(null),2500);};
+  const B={name:'',email:'',password:'',role:'vendedor',active:true};
+  const [form,setForm]=useState(B);
+  const s=(k,v)=>setForm(f=>({...f,[k]:v}));
+  const load=useCallback(async()=>{const {data}=await sb.from('users').select('*').order('created_at');if(data)setUsers(data);},[]);
+  useEffect(()=>{load();},[load]);
+  const save=async()=>{
+    if(!form.name.trim()||!form.email.trim()||!form.password.trim()) return st('Completa todos los campos','error');
+    const {error}=await sb.from('users').insert(form);
+    if(error) return st(error.message.includes('unique')?'Ese email ya existe':'Error al crear usuario','error');
+    setShow(false);setForm(B);load();st('Usuario creado ✓');
+  };
+  const toggleActive=async(id,active)=>{
+    if(id===currentUser.id) return st('No puedes desactivarte a ti mismo','warn');
+    await sb.from('users').update({active:!active}).eq('id',id);load();
+  };
+  return <div style={{display:'flex',flexDirection:'column',gap:20}}>
+    {toast&&<Toast msg={toast.msg} type={toast.type}/>}
+    <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between'}}>
+      <div><h1 style={{fontSize:18,fontWeight:600,color:'#111827'}}>Usuarios</h1><p style={{fontSize:12,color:'#9CA3AF',marginTop:3}}>{users.length} usuarios</p></div>
+      <Btn onClick={()=>setShow(true)}><i className="ti ti-plus" style={{fontSize:14}}/>Nuevo usuario</Btn>
+    </div>
+    <div style={{background:'#fff',border:'1px solid #E5E7EB',borderRadius:12,overflow:'hidden'}}>
+      {users.length===0?<Spin/>:
+      <table style={{width:'100%',borderCollapse:'collapse',fontSize:12}}>
+        <thead><tr style={{background:'#FAFAFA'}}>
+          {['Nombre','Email','Rol','Estado',''].map(h=><th key={h} style={{padding:'9px 16px',textAlign:'left',fontWeight:500,fontSize:11,color:'#9CA3AF',borderBottom:'1px solid #E5E7EB',textTransform:'uppercase',letterSpacing:'0.04em',whiteSpace:'nowrap'}}>{h}</th>)}
+        </tr></thead>
+        <tbody>
+          {users.map((u,i)=><tr key={u.id} style={{borderBottom:i<users.length-1?'1px solid #F4F4F5':'none'}}
+            onMouseEnter={e=>e.currentTarget.style.background='#FAFAFA'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+            <td style={{padding:'10px 16px',fontWeight:500,color:'#111827'}}>
+              {u.name}{u.id===currentUser.id&&<span style={{fontSize:10,color:'#9CA3AF',marginLeft:6}}>(tú)</span>}
+            </td>
+            <td style={{padding:'10px 16px',color:'#6B7280'}}>{u.email}</td>
+            <td style={{padding:'10px 16px'}}><RBadge role={u.role}/></td>
+            <td style={{padding:'10px 16px'}}><span style={{fontSize:11,fontWeight:500,padding:'3px 9px',borderRadius:99,background:u.active?'#ECFDF3':'#F4F4F5',color:u.active?'#166534':'#9CA3AF'}}>{u.active?'Activo':'Inactivo'}</span></td>
+            <td style={{padding:'10px 16px'}}><Btn small secondary onClick={()=>toggleActive(u.id,u.active)}>{u.active?'Desactivar':'Activar'}</Btn></td>
+          </tr>)}
+        </tbody>
+      </table>}
+    </div>
+    {show&&<Modal title="Nuevo usuario" onClose={()=>setShow(false)}>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'0 12px'}}>
+        <F label="Nombre completo *" span2><input style={INP} value={form.name} onChange={e=>s('name',e.target.value)} placeholder="Nombre completo"/></F>
+        <F label="Email *"><input style={INP} type="email" value={form.email} onChange={e=>s('email',e.target.value)} placeholder="correo@empresa.co"/></F>
+        <F label="Contraseña *"><input style={INP} type="text" value={form.password} onChange={e=>s('password',e.target.value)} placeholder="Contraseña inicial"/></F>
+        <F label="Rol" span2>
+          <select style={SEL} value={form.role} onChange={e=>s('role',e.target.value)}>
+            <option value="admin">Admin — acceso total</option>
+            <option value="vendedor">Vendedor — solo sus pedidos</option>
+            <option value="logistica">Logística — estados y despachos</option>
+            <option value="contabilidad">Contabilidad — reportes y pagos</option>
+          </select>
+        </F>
+      </div>
+      <div style={{display:'flex',justifyContent:'flex-end',gap:8,marginTop:8}}>
+        <Btn secondary onClick={()=>setShow(false)}>Cancelar</Btn>
+        <Btn onClick={save}><i className="ti ti-check" style={{fontSize:14}}/>Crear usuario</Btn>
+      </div>
+    </Modal>}
+  </div>;
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
+function App() {
+  const [session,setSession]=useState(()=>{try{const s=localStorage.getItem('ec_session');return s?JSON.parse(s):null;}catch{return null;}});
+  const [orders,setOrders]=useState([]);
+  const [products,setProducts]=useState([]);
+  const [sellers,setSellers]=useState([]);
+  const [lotes,setLotes]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [view,setView]=useState('Dashboard');
+
+  const login=u=>{setSession(u);try{localStorage.setItem('ec_session',JSON.stringify(u));}catch{}};
+  const logout=()=>{setSession(null);try{localStorage.removeItem('ec_session');}catch{}};
+
+  const loadAll=useCallback(async()=>{
+    if(!session) return;
+    setLoading(true);
+    const [o,p,s,l]=await Promise.all([
+      sb.from('orders').select('*').order('created_at',{ascending:false}),
+      sb.from('products').select('*').order('created_at',{ascending:false}),
+      sb.from('sellers').select('*').order('created_at',{ascending:false}),
+      sb.from('lotes').select('*').order('created_at',{ascending:false}),
+    ]);
+    if(o.data) setOrders(o.data);
+    if(p.data) setProducts(p.data);
+    if(s.data) setSellers(s.data);
+    if(l.data) setLotes(l.data);
+    setLoading(false);
+  },[session]);
+
+  useEffect(()=>{loadAll();},[loadAll]);
+
+  if(!session) return <Login onLogin={login}/>;
+
+  return <div style={{minHeight:'100vh',background:'#fff'}}>
+    <Navbar view={view} setView={setView} user={session} onLogout={logout}/>
+    <div style={{padding:24,maxWidth:1400,margin:'0 auto'}}>
+      {loading?<Spin/>:<>
+        {view==='Dashboard'  && <Dashboard  orders={orders} sellers={sellers} products={products} user={session}/>}
+        {view==='Pedidos'    && <Pedidos    orders={orders} reload={loadAll} sellers={sellers} products={products} lotes={lotes} user={session}/>}
+        {view==='Productos'  && <Productos  products={products} reload={loadAll}/>}
+        {view==='Vendedores' && <Vendedores sellers={sellers} reload={loadAll} orders={orders} user={session}/>}
+        {view==='Lotes'      && <Lotes      lotes={lotes} reload={loadAll} orders={orders}/>}
+        {view==='Usuarios'   && <Usuarios   currentUser={session}/>}
+      </>}
+    </div>
+  </div>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
